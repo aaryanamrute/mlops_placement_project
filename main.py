@@ -5,11 +5,16 @@ import logging
 from fastapi import Request
 from fastapi import FastAPI, Request, Header, HTTPException, Depends
 from fastapi.security import APIKeyHeader
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi import Request, Form
 
 logging.basicConfig(level=logging.INFO)
 
 
 app = FastAPI()
+
+templates = Jinja2Templates(directory="templates")
 
 # Load model (VERY IMPORTANT: keep at top)
 model = pickle.load(open("model.pkl", "rb"))
@@ -55,3 +60,29 @@ def predict(data: Student, key: str = Depends(verify_api_key)):
     result = model.predict(features)
 
     return {"placement": int(result[0])}
+
+@app.get("/", response_class=HTMLResponse)
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.post("/predict-form", response_class=HTMLResponse)
+def predict_form(
+    request: Request,
+    cgpa: float = Form(...),
+    iq: int = Form(...),
+    projects: int = Form(...),
+    internships: int = Form(...),
+    communication: int = Form(...)
+):
+    data = [[cgpa, iq, projects, internships, communication]]
+    prediction = model.predict(data)[0]
+    result = "Placed" if prediction == 1 else "Not Placed"
+
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "result": result
+        }
+    )
